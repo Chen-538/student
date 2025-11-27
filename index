@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>戰術迷宮：極速落子｜生成式 AI 戰略棋盤遊戲</title>
+<style>
+  :root {
+    --bg:#050816;
+    --panel:#020617;
+    --panel-soft:#0b1220;
+    --accent-blue:#38bdf8;
+    --accent-red:#fb7185;
+    --text:#e0e7ff;
+  }
+  * { box-sizing:border-box; }
+  body { 
+    margin:0;
+    background:radial-gradient(circle at top,#1f2937 0,#020617 45%,#000 100%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; 
+    display:flex; 
+    flex-direction:column; 
+    align-items:center; 
+    padding:16px;
+  }
+  a { color:var(--accent-blue); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+
+  header {
+    width:100%;
+    max-width:980px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 18px;
+    border-radius:999px;
+    background:linear-gradient(90deg,#020617,#111827);
+    box-shadow:0 16px 40px rgba(15,23,42,.9);
+    margin-bottom:18px;
+  }
+  header .logo { font-weight:700; letter-spacing:2px; font-size:15px; }
+  header nav { display:flex; gap:14px; font-size:14px; }
+  header button.nav-btn {
+    border:none;
+    background:transparent;
+    color:var(--text);
+    cursor:pointer;
+    padding:6px 10px;
+    border-radius:999px;
+  }
+  header button.nav-btn.active {
+    background:rgba(56,189,248,.25);
+  }
+
+  main { width:100%; max-width:980px; }
+  section { margin-bottom:26px; padding:16px 18px; border-radius:24px; background:rgba(15,23,42,.9); box-shadow:0 18px 40px rgba(15,23,42,.9); }
+
+  #home h1 { margin:0 0 8px; font-size:24px; letter-spacing:2px; }
+  #home p.lead { opacity:.9; margin-top:4px; }
+  #home ul { padding-left:20px; margin-top:8px; line-height:1.6; }
+  #home .cta-row { margin-top:12px; display:flex; flex-wrap:wrap; gap:10px; }
+  #home .cta-row button { padding:8px 16px; border:none; border-radius:999px; cursor:pointer; font-weight:600; font-size:14px; }
+  #home .primary { background:var(--accent-blue); color:#020617; box-shadow:0 14px 32px rgba(56,189,248,.5); }
+  #home .secondary { background:transparent; border:1px solid rgba(148,163,184,.8); color:var(--text); }
+
+  #rules h2, #game-section h2 { margin-top:0; }
+  #rules ul { padding-left:20px; line-height:1.7; }
+
+  #game-layout { display:flex; flex-direction:column; gap:14px; }
+
+  #game-top { display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; }
+
+  #status-bar { 
+    display:flex; 
+    gap:18px; 
+    align-items:center; 
+    padding:8px 14px; 
+    border-radius:999px; 
+    background:linear-gradient(90deg,#1f2937,#020617);
+    box-shadow:0 0 24px rgba(59,130,246,.35);
+    font-size:14px;
+  }
+  #timer { font-weight:600; }
+  #mode-select { background:#020617; color:var(--text); border-radius:999px; border:1px solid rgba(148,163,184,.7); padding:4px 10px; }
+
+  #board-wrapper { display:flex; justify-content:center; }
+  #board { 
+    display:grid; 
+    grid-template-columns: repeat(10, 40px); 
+    grid-template-rows: repeat(10, 40px); 
+    gap:2px; 
+    margin-top:10px; 
+    padding:10px; 
+    border-radius:20px; 
+    background:radial-gradient(circle at top,#1f2937,#020617);
+    box-shadow:0 18px 45px rgba(15,23,42,.9);
+  }
+  .cell { 
+    width:40px; 
+    height:40px; 
+    background:#020617; 
+    display:flex; 
+    justify-content:center; 
+    align-items:center; 
+    cursor:pointer; 
+    border-radius:12px; 
+    font-size:20px; 
+    box-shadow:0 0 0 1px rgba(148,163,184,.3) inset;
+    transition:transform .1s, box-shadow .15s, background .15s;
+  }
+  .cell:hover { 
+    transform:translateY(-2px); 
+    box-shadow:0 0 0 1px rgba(129,140,248,.9) inset, 0 8px 14px rgba(15,23,42,.9);
+  }
+  .p1 { background:var(--accent-blue); box-shadow:0 0 0 2px #0ea5e9 inset; }
+  .p2 { background:var(--accent-red); box-shadow:0 0 0 2px #f97316 inset; }
+  .blocked { background:#4b5563; box-shadow:0 0 0 2px #9ca3af inset; cursor:not-allowed; }
+
+  #controls-wrapper { display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; }
+  .player-panel {
+    flex:1 1 260px;
+    min-width:230px;
+    padding:10px 12px;
+    border-radius:18px;
+    background:linear-gradient(145deg,#020617,#111827);
+    box-shadow:0 14px 30px rgba(15,23,42,.9);
+    font-size:13px;
+  }
+  .player-panel h3 { margin:0 0 6px; display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:11px; opacity:.85; }
+  .pill.p1 { background:rgba(56,189,248,.18); }
+  .pill.p2 { background:rgba(251,113,133,.18); }
+  .pill.ai { background:rgba(52,211,153,.18); }
+  .skill-row { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  button.skill {
+    padding:6px 10px;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    font-size:13px;
+    text-align:left;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .skill-label { font-weight:500; }
+  .skill-count { font-size:12px; opacity:.9; }
+  .skill.p1-btn { background:rgba(56,189,248,.15); color:#e0f2fe; }
+  .skill.p2-btn { background:rgba(251,113,133,.15); color:#ffe4e6; }
+  button.skill:disabled { opacity:.35; cursor:not-allowed; box-shadow:none; }
+
+  #hint { margin-top:6px; font-size:12px; opacity:.85; }
+
+  #actions { margin-top:10px; }
+  #actions button {
+    padding:7px 14px;
+    border:none;
+    background:var(--accent-blue);
+    color:#020617;
+    border-radius:999px;
+    cursor:pointer;
+    font-size:14px;
+    font-weight:600;
+    box-shadow:0 12px 28px rgba(56,189,248,.4);
+  }
+  #actions button:hover { filter:brightness(1.08); }
+
+  #stats { margin-top:8px; font-size:13px; opacity:.9; }
+
+  @media (max-width:700px) {
+    header { flex-direction:column; gap:8px; align-items:flex-start; }
+    header nav { width:100%; justify-content:space-around; }
+    #board { transform:scale(.85); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">戰術迷宮：極速落子</div>
+  <nav>
+    <button class="nav-btn active" onclick="scrollToSection('home')">首頁</button>
+    <button class="nav-btn" onclick="scrollToSection('rules')">規則介紹</button>
+    <button class="nav-btn" onclick="scrollToSection('game-section')">開始遊戲</button>
+  </nav>
+</header>
+
+<main>
+  <section id="home">
+    <h1>生成式 AI × 複合棋盤策略遊戲</h1>
+    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
+    <ul>
+      <li>雙人或對 AI 對戰，規則直覺、入門快速。</li>
+      <li>每手 15 秒極速計時，超時直接判負。</li>
+      <li>三大主動技能：連續落子、封鎖格子、移除對手棋子。</li>
+      <li>內建戰績紀錄：勝場數、總對戰數與最長連勝紀錄。</li>
+    </ul>
+    <div class="cta-row">
+      <button class="primary" onclick="scrollToSection('game-section')">▶ 立即開始對戰</button>
+      <button class="secondary" onclick="scrollToSection('rules')">查看詳細規則</button>
+    </div>
+  </section>
+
+  <section id="rules">
+    <h2>規則介紹</h2>
+    <ul>
+      <li><strong>勝利條件：</strong>先在棋盤上連成任意方向五顆同色棋子（直線、橫線或斜線）者獲勝。</li>
+      <li><strong>回合計時：</strong>每位玩家每一手有 15 秒思考時間，時間歸零仍未落子則直接判負。</li>
+      <li><strong>技能使用方式：</strong>輪到你的回合時，可先點選技能按鈕，再在棋盤上點選對應格子發動效果。</li>
+      <li><strong>技能列表：</strong>
+        <ul>
+          <li><em>連續落子：</em>啟動後，本回合你可以連下兩手（中途若已勝利則立即結束）。</li>
+          <li><em>封鎖格子：</em>選擇一格尚未落子的格子，將其變為障礙，雙方皆不能再在其上落子。</li>
+          <li><em>移除對方棋子：</em>選擇對手的一顆棋子，將其從棋盤上移除。</li>
+        </ul>
+      </li>
+      <li><strong>對戰模式：</strong>
+        <ul>
+          <li>「雙人對戰」：玩家 1（藍）對玩家 2（紅）。</li>
+          <li>「對 AI 對戰」：你扮演玩家 1，AI 擔任玩家 2，會嘗試進攻與防守。</li>
+        </ul>
+      </li>
+      <li><strong>戰績紀錄：</strong>系統會記錄雙方勝場、總對戰數，以及目前最長連勝玩家與連勝場數。</li>
+    </ul>
+  </section>
+
+  <section id="game-section">
+    <h2>實際遊戲區</h2>
+    <div id="game-layout">
+      <div id="game-top">
+        <div id="status-bar">
+          <div id="turn">輪到：玩家 1（藍）</div>
+          <div id="timer">剩餘時間：15 秒</div>
+        </div>
+        <div>
+          <label for="mode-select">對戰模式：</label>
+          <select id="mode-select" onchange="changeMode(this.value)">
+            <option value="pvp">雙人對戰</option>
+            <option value="ai">對 AI 對戰（你是玩家 1）</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="board-wrapper">
+        <div id="board"></div>
+      </div>
+
+      <div id="controls-wrapper">
+        <div class="player-panel" id="panel-p1">
+          <h3>玩家 1 技能 <span class="pill p1">藍方</span></h3>
+          <div class="skill-row">
+            <button id="p1-double" class="skill p1-btn" onclick="useSkill(1,'double')">
+              <span class="skill-label">連續落子</span>
+              <span class="skill-count" id="p1-double-count">x1</span>
+            </button>
+            <button id="p1-block" class="skill p1-btn" onclick="useSkill(1,'block')">
+              <span class="skill-label">封鎖格子</span>
+              <span class="skill-count" id="p1-block-count">x1</span>
+            </button>
+            <button id="p1-remove" class="skill p1-btn" onclick="useSkill(1,'remove')">
+              <span class="skill-label">移除對方棋子</span>
+              <span class="skill-count" id="p1-remove-count">x1</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="player-panel" id="panel-p2">
+          <h3>玩家 2 技能 <span class="pill p2" id="p2-tag">紅方</span></h3>
+          <div class="skill-row">
+            <button id="p2-double" class="skill p2-btn" onclick="useSkill(2,'double')">
+              <span class="skill-label">連續落子</span>
+              <span class="skill-count" id="p2-double-count">x1</span>
+            </button>
+            <button id="p2-block" class="skill p2-btn" onclick="useSkill(2,'block')">
+              <span class="skill-label">封鎖格子</span>
+              <span class="skill-count" id="p2-block-count">x1</span>
+            </button>
+            <button id="p2-remove" class="skill p2-btn" onclick="useSkill(2,'remove')">
+              <span class="skill-label">移除對方棋子</span>
+              <span class="skill-count" id="p2-remove-count">x1</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。</div>
+
+      <div id="actions">
+        <button onclick="resetGame()">重新開始對戰</button>
+      </div>
+
+      <div id="stats">
+        戰績統計：玩家 1 勝場 <span id="stats-p1">0</span>｜玩家 2 勝場 <span id="stats-p2">0</span>｜總對戰數 <span id="stats-total">0</span><br>
+        目前最長連勝：<span id="stats-streak-player">尚無</span>（<span id="stats-streak-count">0</span> 連勝）
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const boardSize = 10;
+const MOVE_TIME = 15; // 每手 15 秒
+const MODE_PVP = 'pvp';
+const MODE_AI = 'ai';
+
+let board = [];
+let currentPlayer = 1;
+let pendingExtraMovePlayer = null; // 連續落子用
+let mode = 'normal'; // 'normal' | 'block' | 'remove'
+let skillOwner = null;
+let timerId = null;
+let timeLeft = MOVE_TIME;
+let gameMode = MODE_PVP;
+
+// 戰績
+let stats = {
+  p1Wins:0,
+  p2Wins:0,
+  draws:0,
+  totalGames:0,
+  longestStreak:0,
+  currentStreakPlayer:null,
+  currentStreakCount:0
+};
+
+const boardDiv = document.getElementById('board');
+const turnDiv = document.getElementById('turn');
+const timerDiv = document.getElementById('timer');
+const hintDiv = document.getElementById('hint');
+const p2Tag = document.getElementById('p2-tag');
+
+function scrollToSection(id){
+  document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function initBoard() {
+  board = Array(boardSize).fill().map(()=>Array(boardSize).fill(0));
+  boardDiv.innerHTML = '';
+
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.addEventListener('click', onCellClick);
+      boardDiv.appendChild(cell);
+    }
+  }
+}
+
+function startTimer() {
+  clearInterval(timerId);
+  timeLeft = MOVE_TIME;
+  updateTimerText();
+  timerId = setInterval(() => {
+    timeLeft--;
+    updateTimerText();
+    if (timeLeft <= 0) {
+      clearInterval(timerId);
+      const loser = currentPlayer;
+      const winner = loser === 1 ? 2 : 1;
+      setTimeout(() => {
+        finishGame(winner, `玩家 ${loser} 超時，玩家 ${winner} 勝利！`);
+      }, 20);
+    }
+  }, 1000);
+}
+
+function updateTimerText() {
+  timerDiv.textContent = `剩餘時間：${timeLeft} 秒`;
+}
+
+function onCellClick(e) {
+  const r = Number(e.target.dataset.r);
+  const c = Number(e.target.dataset.c);
+
+  if (gameMode === MODE_AI && currentPlayer === 2) return; // AI 回合禁止玩家點擊
+
+  if (mode === 'block') {
+    handleBlockSkill(r, c, e.target);
+    return;
+  }
+  if (mode === 'remove') {
+    handleRemoveSkill(r, c, e.target);
+    return;
+  }
+
+  handleMove(r, c, e.target);
+}
+
+function handleMove(r, c, cellEl) {
+  if (board[r][c] !== 0) return; // 已有棋子或封鎖
+
+  board[r][c] = currentPlayer;
+  cellEl.classList.add(currentPlayer === 1 ? 'p1' : 'p2');
+
+  if (checkWin(r, c)) {
+    const winner = currentPlayer;
+    clearInterval(timerId);
+    setTimeout(() => {
+      finishGame(winner, `玩家 ${winner} 連成五子，勝利！`);
+    }, 20);
+    return;
+  }
+
+  if (isBoardFull()) {
+    clearInterval(timerId);
+    setTimeout(() => {
+      finishGame(0, '棋盤已滿，本局平手！');
+    }, 20);
+    return;
+  }
+
+  // 連續落子判定
+  if (pendingExtraMovePlayer === currentPlayer) {
+    pendingExtraMovePlayer = null;
+    hintDiv.textContent = '連續落子啟動：你還可以再下一手。';
+    startTimer();
+    return;
+  }
+
+  // 正常換手
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  hintDiv.textContent = '輪到你時可選擇技能或直接落子。';
+  updateUI();
+  scheduleNextTurn();
+}
+
+function handleBlockSkill(r, c, cellEl) {
+  if (board[r][c] !== 0) return; // 只能封鎖空格
+  board[r][c] = -1; // -1 代表封鎖
+  cellEl.classList.add('blocked');
+
+  skills[skillOwner].block--;
+  exitSkillMode();
+}
+
+function handleRemoveSkill(r, c, cellEl) {
+  const opponent = skillOwner === 1 ? 2 : 1;
+  if (board[r][c] !== opponent) return; // 只能移除對手棋子
+
+  board[r][c] = 0;
+  cellEl.classList.remove('p1','p2');
+
+  skills[skillOwner].remove--;
+  exitSkillMode();
+}
+
+function scheduleNextTurn() {
+  if (gameMode === MODE_AI && currentPlayer === 2) {
+    clearInterval(timerId);
+    timerDiv.textContent = 'AI 思考中…';
+    setTimeout(aiMove, 400);
+  } else {
+    startTimer();
+  }
+}
+
+// 技能邏輯
+const skills = {
+  1: { double: 1, block: 1, remove: 1 },
+  2: { double: 1, block: 1, remove: 1 }
+};
+
+function useSkill(player, type) {
+  if (player !== currentPlayer) return; // 非當前玩家不能用
+  if (skills[player][type] <= 0) return;
+  if (mode !== 'normal') return; // 已在技能模式中
+  if (gameMode === MODE_AI && player === 2) return; // AI 不主動用技能
+
+  if (type === 'double') {
+    pendingExtraMovePlayer = player;
+    skills[player].double--;
+    hintDiv.textContent = '連續落子啟動！這回合你可以連下兩手。';
+    updateUI();
+    return;
+  }
+
+  // block / remove 需要點格子
+  mode = type; // 'block' 或 'remove'
+  skillOwner = player;
+  if (type === 'block') {
+    hintDiv.textContent = '封鎖格子：請點選任一尚未下子的格子。';
+  } else {
+    hintDiv.textContent = '移除棋子：請點選對方的一顆棋子。';
+  }
+  updateUI();
+}
+
+function exitSkillMode() {
+  mode = 'normal';
+  skillOwner = null;
+  hintDiv.textContent = '技能已發動，請繼續對戰。';
+  updateUI();
+}
+
+// AI 行為：簡易進攻 + 防守 + 隨機
+function aiMove() {
+  if (currentPlayer !== 2) return;
+
+  let move = findWinningMove(2); // 先找 AI 自己的致勝點
+  if (!move) move = findWinningMove(1); // 再試著擋住玩家致勝點
+  if (!move) move = findRandomMove();
+
+  if (!move) {
+    // 無空格，視為平手
+    finishGame(0, '棋盤已滿，本局平手！');
+    return;
+  }
+
+  const [r, c] = move;
+  const index = r * boardSize + c;
+  const cellEl = boardDiv.children[index];
+  handleMove(r, c, cellEl);
+}
+
+function findWinningMove(player) {
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      if (board[r][c] !== 0) continue;
+      board[r][c] = player;
+      const win = checkWin(r, c);
+      board[r][c] = 0;
+      if (win) return [r, c];
+    }
+  }
+  return null;
+}
+
+function findRandomMove() {
+  const empties = [];
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      if (board[r][c] === 0) empties.push([r, c]);
+    }
+  }
+  if (empties.length === 0) return null;
+  const idx = Math.floor(Math.random() * empties.length);
+  return empties[idx];
+}
+
+// 勝負與戰績
+function checkWin(r, c) {
+  const target = board[r][c];
+  const dirs = [
+    [[1,0],[-1,0]],
+    [[0,1],[0,-1]],
+    [[1,1],[-1,-1]],
+    [[1,-1],[-1,1]]
+  ];
+
+  for (let dir of dirs) {
+    let count = 1;
+    for (let [dr, dc] of dir) {
+      let nr = r + dr, nc = c + dc;
+      while (nr>=0 && nr<boardSize && nc>=0 && nc<boardSize && board[nr][nc]===target) {
+        count++;
+        nr += dr; nc += dc;
+      }
+    }
+    if (count >= 5) return true;
+  }
+  return false;
+}
+
+function isBoardFull() {
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      if (board[r][c] === 0) return false;
+    }
+  }
+  return true;
+}
+
+function finishGame(winner, message) {
+  // 更新戰績
+  stats.totalGames++;
+  if (winner === 1) stats.p1Wins++;
+  if (winner === 2) stats.p2Wins++;
+
+  if (winner === 0) {
+    stats.draws++;
+    stats.currentStreakPlayer = null;
+    stats.currentStreakCount = 0;
+  } else {
+    if (stats.currentStreakPlayer === winner) {
+      stats.currentStreakCount++;
+    } else {
+      stats.currentStreakPlayer = winner;
+      stats.currentStreakCount = 1;
+    }
+    if (stats.currentStreakCount > stats.longestStreak) {
+      stats.longestStreak = stats.currentStreakCount;
+    }
+  }
+
+  updateStatsUI();
+  alert(message);
+  resetGame(false); // 不重置戰績
+}
+
+function updateStatsUI() {
+  document.getElementById('stats-p1').textContent = stats.p1Wins;
+  document.getElementById('stats-p2').textContent = stats.p2Wins;
+  document.getElementById('stats-total').textContent = stats.totalGames;
+
+  if (!stats.currentStreakPlayer) {
+    document.getElementById('stats-streak-player').textContent = '尚無';
+    document.getElementById('stats-streak-count').textContent = '0';
+  } else {
+    document.getElementById('stats-streak-player').textContent = `玩家 ${stats.currentStreakPlayer}`;
+    document.getElementById('stats-streak-count').textContent = stats.currentStreakCount;
+  }
+}
+
+function resetGame(resetStats=true) {
+  clearInterval(timerId);
+  currentPlayer = 1;
+  pendingExtraMovePlayer = null;
+  mode = 'normal';
+  skillOwner = null;
+  if (resetStats) {
+    stats = { p1Wins:0,p2Wins:0,draws:0,totalGames:0,longestStreak:0,currentStreakPlayer:null,currentStreakCount:0 };
+  }
+  skills[1] = { double:1, block:1, remove:1 };
+  skills[2] = { double:1, block:1, remove:1 };
+  updateSkillCounts();
+  initBoard();
+  updateUI();
+  updateStatsUI();
+  scheduleNextTurn();
+}
+
+function updateSkillCounts() {
+  document.getElementById('p1-double-count').textContent = 'x' + skills[1].double;
+  document.getElementById('p1-block-count').textContent  = 'x' + skills[1].block;
+  document.getElementById('p1-remove-count').textContent = 'x' + skills[1].remove;
+  document.getElementById('p2-double-count').textContent = 'x' + skills[2].double;
+  document.getElementById('p2-block-count').textContent  = 'x' + skills[2].block;
+  document.getElementById('p2-remove-count').textContent = 'x' + skills[2].remove;
+}
+
+function updateUI() {
+  turnDiv.textContent = `輪到：玩家 ${currentPlayer} ${currentPlayer===1 ? '（藍）' : '（紅）'}`;
+  updateSkillCounts();
+
+  const isNormal = mode === 'normal';
+  const p1Turn = currentPlayer === 1;
+  const p2Turn = currentPlayer === 2;
+
+  // 玩家 1 技能
+  document.getElementById('p1-double').disabled = !isNormal || !p1Turn || skills[1].double<=0;
+  document.getElementById('p1-block').disabled  = !isNormal || !p1Turn || skills[1].block<=0;
+  document.getElementById('p1-remove').disabled = !isNormal || !p1Turn || skills[1].remove<=0;
+
+  // 玩家 2 / AI 技能
+  const isAI = gameMode === MODE_AI;
+  document.getElementById('p2-double').disabled = !isNormal || !p2Turn || skills[2].double<=0 || isAI;
+  document.getElementById('p2-block').disabled  = !isNormal || !p2Turn || skills[2].block<=0  || isAI;
+  document.getElementById('p2-remove').disabled = !isNormal || !p2Turn || skills[2].remove<=0 || isAI;
+
+  p2Tag.textContent = isAI ? 'AI（紅方）' : '紅方';
+}
+
+function changeMode(value) {
+  gameMode = value === MODE_AI ? MODE_AI : MODE_PVP;
+  hintDiv.textContent = gameMode === MODE_AI
+    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。'
+    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流落子。';
+  resetGame(true);
+}
+
+// 初始化
+initBoard();
+updateUI();
+updateStatsUI();
+scheduleNextTurn();
+</script>
+</body>
+</html>
