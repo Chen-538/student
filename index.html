@@ -209,11 +209,12 @@
 <main>
   <section id="home">
     <h1>生成式 AI × 複合棋盤策略遊戲</h1>
-    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，並搭配旋轉棋盤與重力落子特效，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
+    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，並搭配旋轉棋盤、直落式 Drop Gomoku 規則與重力落子特效，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
     <ul>
       <li>雙人或對 AI 對戰，規則直覺、入門快速。</li>
       <li>每手 15 秒極速計時，超時直接判負。</li>
       <li>三大主動技能：連續落子、封鎖格子、移除對手棋子。</li>
+      <li>直落式五子棋（Drop Gomoku）：點選欄位，上方棋子會往下掉並堆疊。</li>
       <li>旋轉漂浮棋盤＋重力落子動畫，更有科技感與臨場感。</li>
       <li>內建戰績紀錄：勝場數、總對戰數與最長連勝紀錄。</li>
     </ul>
@@ -228,6 +229,7 @@
     <ul>
       <li><strong>勝利條件：</strong>先在棋盤上連成任意方向五顆同色棋子（直線、橫線或斜線）者獲勝。</li>
       <li><strong>回合計時：</strong>每位玩家每一手有 15 秒思考時間，時間歸零仍未落子則直接判負。</li>
+      <li><strong>輪流插入規則（Drop Gomoku）：</strong>棋子不是固定放在你點擊的那一格，而是「選擇一欄」後，棋子會沿著該欄往下掉，停在該欄最底部的空格上，類似直落四，需要考慮重力與堆疊。</li>
       <li><strong>技能使用方式：</strong>輪到你的回合時，可先點選技能按鈕，再在棋盤上點選對應格子發動效果。</li>
       <li><strong>技能列表：</strong>
         <ul>
@@ -307,7 +309,7 @@
         </div>
       </div>
 
-      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。現在棋盤會立體旋轉，落子會有重力掉落效果。</div>
+      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。現在採用直落式 Drop Gomoku：點選欄位，棋子會往下掉並堆疊。</div>
 
       <div id="actions">
         <button onclick="resetGame()">重新開始對戰</button>
@@ -395,12 +397,25 @@ function updateTimerText() {
   timerDiv.textContent = `剩餘時間：${timeLeft} 秒`;
 }
 
+// 尋找某一欄最底部可以落子的目標格
+function getDropTargetColumn(c) {
+  for (let r = boardSize - 1; r >= 0; r--) {
+    if (board[r][c] === 0) {
+      const idx = r * boardSize + c;
+      const cellEl = boardDiv.children[idx];
+      return { r, cellEl };
+    }
+  }
+  return null; // 此欄已滿
+}
+
 function onCellClick(e) {
   const r = Number(e.target.dataset.r);
   const c = Number(e.target.dataset.c);
 
   if (gameMode === MODE_AI && currentPlayer === 2) return; // AI 回合禁止玩家點擊
 
+  // 技能模式：封鎖格子或移除棋子仍然是「點哪裡就作用哪裡」
   if (mode === 'block') {
     handleBlockSkill(r, c, e.target);
     return;
@@ -410,7 +425,11 @@ function onCellClick(e) {
     return;
   }
 
-  handleMove(r, c, e.target);
+  // 一般落子：改成直落式，依欄位決定最底部空格
+  const target = getDropTargetColumn(c);
+  if (!target) return; // 這欄已滿，無法落子
+
+  handleMove(target.r, c, target.cellEl);
 }
 
 function handleMove(r, c, cellEl) {
@@ -521,49 +540,61 @@ function exitSkillMode() {
   updateUI();
 }
 
-// AI 行為：簡易進攻 + 防守 + 隨機
+// AI 行為：簡易進攻 + 防守 + 依欄位直落 + 隨機選欄
 function aiMove() {
   if (currentPlayer !== 2) return;
 
-  let move = findWinningMove(2); // 先找 AI 自己的致勝點
-  if (!move) move = findWinningMove(1); // 再試著擋住玩家致勝點
-  if (!move) move = findRandomMove();
+  let col = findWinningMove(2); // 先找 AI 自己的致勝欄
+  if (col === null) col = findWinningMove(1); // 再試著擋住玩家致勝欄
+  if (col === null) col = findRandomMove();   // 否則隨機找一欄
 
-  if (!move) {
-    // 無空格，視為平手
+  if (col === null) {
     finishGame(0, '棋盤已滿，本局平手！');
     return;
   }
 
-  const [r, c] = move;
-  const index = r * boardSize + c;
-  const cellEl = boardDiv.children[index];
-  handleMove(r, c, cellEl);
+  const target = getDropTargetColumn(col);
+  if (!target) {
+    finishGame(0, '棋盤已滿，本局平手！');
+    return;
+  }
+  handleMove(target.r, col, target.cellEl);
 }
 
+// 回傳「哪一欄」可以讓指定玩家一落子就獲勝；沒有則回傳 null
 function findWinningMove(player) {
-  for (let r = 0; r < boardSize; r++) {
-    for (let c = 0; c < boardSize; c++) {
-      if (board[r][c] !== 0) continue;
-      board[r][c] = player;
-      const win = checkWin(r, c);
-      board[r][c] = 0;
-      if (win) return [r, c];
+  for (let c = 0; c < boardSize; c++) {
+    let dropRow = -1;
+    for (let r = boardSize - 1; r >= 0; r--) {
+      if (board[r][c] === 0) {
+        dropRow = r;
+        break;
+      }
     }
+    if (dropRow === -1) continue;
+
+    board[dropRow][c] = player;
+    const win = checkWin(dropRow, c);
+    board[dropRow][c] = 0;
+    if (win) return c;
   }
   return null;
 }
 
+// 隨機選一個還有空位的欄
 function findRandomMove() {
-  const empties = [];
-  for (let r = 0; r < boardSize; r++) {
-    for (let c = 0; c < boardSize; c++) {
-      if (board[r][c] === 0) empties.push([r, c]);
+  const candidates = [];
+  for (let c = 0; c < boardSize; c++) {
+    for (let r = boardSize - 1; r >= 0; r--) {
+      if (board[r][c] === 0) {
+        candidates.push(c);
+        break;
+      }
     }
   }
-  if (empties.length === 0) return null;
-  const idx = Math.floor(Math.random() * empties.length);
-  return empties[idx];
+  if (candidates.length === 0) return null;
+  const idx = Math.floor(Math.random() * candidates.length);
+  return candidates[idx];
 }
 
 // 勝負與戰績
@@ -692,8 +723,8 @@ function updateUI() {
 function changeMode(value) {
   gameMode = value === MODE_AI ? MODE_AI : MODE_PVP;
   hintDiv.textContent = gameMode === MODE_AI
-    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。棋盤會持續立體旋轉，落子有重力掉落效果。'
-    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流落子。棋盤會持續立體旋轉，落子有重力掉落效果。';
+    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。採用直落式 Drop Gomoku 規則。'
+    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流直落式落子。';
   resetGame(true);
 }
 
