@@ -84,38 +84,43 @@
   #timer { font-weight:600; }
   #mode-select { background:#020617; color:var(--text); border-radius:999px; border:1px solid rgba(148,163,184,.7); padding:4px 10px; }
 
-  #board-wrapper { display:flex; justify-content:center; }
+  #board-wrapper { display:flex; justify-content:center; margin-top:4px; perspective:1100px; }
+  #board-3d { transform-style:preserve-3d; animation:boardFloat 8s ease-in-out infinite alternate; }
+
   #board { 
     display:grid; 
-    grid-template-columns: repeat(10, 40px); 
-    grid-template-rows: repeat(10, 40px); 
-    gap:2px; 
+    grid-template-columns: repeat(10, 52px); 
+    grid-template-rows: repeat(10, 52px); 
+    gap:3px; 
     margin-top:10px; 
-    padding:10px; 
-    border-radius:20px; 
+    padding:12px; 
+    border-radius:24px; 
     background:radial-gradient(circle at top,#1f2937,#020617);
     box-shadow:0 18px 45px rgba(15,23,42,.9);
   }
   .cell { 
-    width:40px; 
-    height:40px; 
+    width:52px; 
+    height:52px; 
     background:#020617; 
     display:flex; 
     justify-content:center; 
     align-items:center; 
     cursor:pointer; 
-    border-radius:12px; 
-    font-size:20px; 
-    box-shadow:0 0 0 1px rgba(148,163,184,.3) inset;
-    transition:transform .1s, box-shadow .15s, background .15s;
+    border-radius:16px; 
+    font-size:22px; 
+    box-shadow:0 0 0 1px rgba(148,163,184,.35) inset;
+    transition:box-shadow .15s, background .15s;
+    position:relative;
+    overflow:visible;
   }
-  .cell:hover { 
-    transform:translateY(-2px); 
+  #board .cell:hover:not(.blocked) { 
     box-shadow:0 0 0 1px rgba(129,140,248,.9) inset, 0 8px 14px rgba(15,23,42,.9);
   }
+
   .p1 { background:var(--accent-blue); box-shadow:0 0 0 2px #0ea5e9 inset; }
   .p2 { background:var(--accent-red); box-shadow:0 0 0 2px #f97316 inset; }
   .blocked { background:#4b5563; box-shadow:0 0 0 2px #9ca3af inset; cursor:not-allowed; }
+  .drop { animation:pieceDrop .35s ease-out; }
 
   #controls-wrapper { display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; }
   .player-panel {
@@ -168,10 +173,26 @@
 
   #stats { margin-top:8px; font-size:13px; opacity:.9; }
 
-  @media (max-width:700px) {
-    header { flex-direction:column; gap:8px; align-items:flex-start; }
-    header nav { width:100%; justify-content:space-around; }
-    #board { transform:scale(.85); }
+  @keyframes boardFloat {
+    0% { transform:rotateX(16deg) rotateY(-16deg) translateY(0); }
+    50% { transform:rotateX(19deg) rotateY(16deg) translateY(-10px); }
+    100% { transform:rotateX(16deg) rotateY(-16deg) translateY(0); }
+  }
+
+  @keyframes pieceDrop {
+    0% { transform:translateY(-90px) scale(0.4); }
+    75% { transform:translateY(6px) scale(1.03); }
+    100% { transform:translateY(0) scale(1); }
+  }
+
+  @media (max-width:800px) {
+    #board { transform:scale(.9); }
+  }
+  @media (max-width:650px) {
+    #board { transform:scale(.8); }
+  }
+  @media (max-width:520px) {
+    #board { transform:scale(.7); }
   }
 </style>
 </head>
@@ -188,11 +209,12 @@
 <main>
   <section id="home">
     <h1>生成式 AI × 複合棋盤策略遊戲</h1>
-    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
+    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，並搭配旋轉棋盤與重力落子特效，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
     <ul>
       <li>雙人或對 AI 對戰，規則直覺、入門快速。</li>
       <li>每手 15 秒極速計時，超時直接判負。</li>
       <li>三大主動技能：連續落子、封鎖格子、移除對手棋子。</li>
+      <li>旋轉漂浮棋盤＋重力落子動畫，更有科技感與臨場感。</li>
       <li>內建戰績紀錄：勝場數、總對戰數與最長連勝紀錄。</li>
     </ul>
     <div class="cta-row">
@@ -242,7 +264,9 @@
       </div>
 
       <div id="board-wrapper">
-        <div id="board"></div>
+        <div id="board-3d">
+          <div id="board"></div>
+        </div>
       </div>
 
       <div id="controls-wrapper">
@@ -283,7 +307,7 @@
         </div>
       </div>
 
-      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。</div>
+      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。現在棋盤會立體旋轉，落子會有重力掉落效果。</div>
 
       <div id="actions">
         <button onclick="resetGame()">重新開始對戰</button>
@@ -394,6 +418,8 @@ function handleMove(r, c, cellEl) {
 
   board[r][c] = currentPlayer;
   cellEl.classList.add(currentPlayer === 1 ? 'p1' : 'p2');
+  cellEl.classList.add('drop');
+  setTimeout(() => cellEl.classList.remove('drop'), 400);
 
   if (checkWin(r, c)) {
     const winner = currentPlayer;
@@ -666,8 +692,8 @@ function updateUI() {
 function changeMode(value) {
   gameMode = value === MODE_AI ? MODE_AI : MODE_PVP;
   hintDiv.textContent = gameMode === MODE_AI
-    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。'
-    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流落子。';
+    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。棋盤會持續立體旋轉，落子有重力掉落效果。'
+    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流落子。棋盤會持續立體旋轉，落子有重力掉落效果。';
   resetGame(true);
 }
 
