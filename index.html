@@ -85,7 +85,11 @@
   #mode-select { background:#020617; color:var(--text); border-radius:999px; border:1px solid rgba(148,163,184,.7); padding:4px 10px; }
 
   #board-wrapper { display:flex; justify-content:center; margin-top:4px; perspective:1100px; }
-  #board-3d { transform-style:preserve-3d; animation:boardFloat 8s ease-in-out infinite alternate; }
+  #board-3d { 
+    transform-style:preserve-3d; 
+    transition: transform .35s ease-in-out; 
+    transform:rotateX(16deg) rotateY(-16deg) rotateZ(0deg);
+  }
 
   #board { 
     display:grid; 
@@ -173,12 +177,6 @@
 
   #stats { margin-top:8px; font-size:13px; opacity:.9; }
 
-  @keyframes boardFloat {
-    0% { transform:rotateX(16deg) rotateY(-16deg) translateY(0); }
-    50% { transform:rotateX(19deg) rotateY(16deg) translateY(-10px); }
-    100% { transform:rotateX(16deg) rotateY(-16deg) translateY(0); }
-  }
-
   @keyframes pieceDrop {
     0% { transform:translateY(-90px) scale(0.4); }
     75% { transform:translateY(6px) scale(1.03); }
@@ -208,13 +206,17 @@
 
 <main>
   <section id="home">
-    <h1>生成式 AI × 複合棋盤策略遊戲</h1>
-    <p class="lead">在 10×10 戰術棋盤上，以極速思考與主動技能決勝負。支援雙人對戰與人機對戰模式，並搭配旋轉棋盤與重力落子特效，非常適合展示「生成式 AI 輔助設計的遊戲原型」。</p>
+    <h1>生成式 AI × 旋轉重力五子棋</h1>
+    <p class="lead">
+      在 10×10 戰術棋盤上，以極速思考、旋轉牌與主動技能決勝負。  
+      雙方各下完一次算一回合，每三回合棋盤會依目前方向自動旋轉 90°，並把所有棋子往新的「下方」推一格。
+    </p>
     <ul>
       <li>雙人或對 AI 對戰，規則直覺、入門快速。</li>
       <li>每手 15 秒極速計時，超時直接判負。</li>
-      <li>三大主動技能：連續落子、封鎖格子、移除對手棋子。</li>
-      <li>旋轉漂浮棋盤＋重力落子動畫，更有科技感與臨場感。</li>
+      <li>主動技能：連續落子、封鎖格子、移除對手棋子。</li>
+      <li>每人 1 張旋轉牌，可指定順時針 / 逆時針旋轉，之後自動旋轉方向跟著改變。</li>
+      <li>每滿三回合自動旋轉＋重力往下平移一格，局勢隨時大翻盤。</li>
       <li>內建戰績紀錄：勝場數、總對戰數與最長連勝紀錄。</li>
     </ul>
     <div class="cta-row">
@@ -227,9 +229,17 @@
     <h2>規則介紹</h2>
     <ul>
       <li><strong>勝利條件：</strong>先在棋盤上連成任意方向五顆同色棋子（直線、橫線或斜線）者獲勝。</li>
+      <li><strong>回合定義：</strong>雙方玩家各下完一次棋，算作 1 回合。</li>
+      <li><strong>自動旋轉：</strong>每經過 3 回合，棋盤會依目前設定方向自動旋轉 90°，並在新方向的重力之下，棋盤上的所有棋子若下方為空格，會往下平移 1 格。</li>
+      <li><strong>旋轉牌：</strong>每名玩家在初始時各獲得 1 張「旋轉棋盤」技能牌，可在自己的回合隨時使用一次：
+        <ul>
+          <li>使用時選擇「順時針」或「逆時針」旋轉 90°，立刻生效並套用一次重力平移。</li>
+          <li>之後每 3 回合的自動旋轉，會沿用最後使用旋轉牌的那位玩家所選的方向。</li>
+          <li>直到另一位玩家使用自己的旋轉牌後，才可能改變自動旋轉方向。</li>
+        </ul>
+      </li>
       <li><strong>回合計時：</strong>每位玩家每一手有 15 秒思考時間，時間歸零仍未落子則直接判負。</li>
-      <li><strong>技能使用方式：</strong>輪到你的回合時，可先點選技能按鈕，再在棋盤上點選對應格子發動效果。</li>
-      <li><strong>技能列表：</strong>
+      <li><strong>其他技能使用方式：</strong>輪到你的回合時，可先點選技能按鈕，再在棋盤上點選對應格子發動效果。
         <ul>
           <li><em>連續落子：</em>啟動後，本回合你可以連下兩手（中途若已勝利則立即結束）。</li>
           <li><em>封鎖格子：</em>選擇一格尚未落子的格子，將其變為障礙，雙方皆不能再在其上落子。</li>
@@ -285,6 +295,10 @@
               <span class="skill-label">移除對方棋子</span>
               <span class="skill-count" id="p1-remove-count">x1</span>
             </button>
+            <button id="p1-rotate" class="skill p1-btn" onclick="useRotateSkill(1)">
+              <span class="skill-label">旋轉棋盤牌</span>
+              <span class="skill-count" id="p1-rotate-count">x1</span>
+            </button>
           </div>
         </div>
 
@@ -303,11 +317,18 @@
               <span class="skill-label">移除對方棋子</span>
               <span class="skill-count" id="p2-remove-count">x1</span>
             </button>
+            <button id="p2-rotate" class="skill p2-btn" onclick="useRotateSkill(2)">
+              <span class="skill-label">旋轉棋盤牌</span>
+              <span class="skill-count" id="p2-rotate-count">x1</span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div id="hint">提示：輪到你的回合時，可以先點技能，再在棋盤上選格子來發動效果。現在棋盤會立體旋轉，落子會有重力掉落效果。</div>
+      <div id="hint">
+        提示：雙方各下完一次算一回合，每三回合棋盤會依目前方向自動旋轉 90 度並往下推一格。
+        每位玩家都有一張旋轉牌，可以在自己的回合改變旋轉方向。
+      </div>
 
       <div id="actions">
         <button onclick="resetGame()">重新開始對戰</button>
@@ -336,6 +357,12 @@ let timerId = null;
 let timeLeft = MOVE_TIME;
 let gameMode = MODE_PVP;
 
+// 回合與旋轉
+let roundCount = 0;                      // 已完成的回合數（雙方各動一次）
+let movedThisRound = { 1:false, 2:false }; // 本回合內誰已動過
+let autoRotateDir = 1;                   // 1: 順時針, -1: 逆時針
+let boardRotSteps = 0;                   // 目前盤面旋轉了幾次 90°（0~3）
+
 // 戰績
 let stats = {
   p1Wins:0,
@@ -352,6 +379,7 @@ const turnDiv = document.getElementById('turn');
 const timerDiv = document.getElementById('timer');
 const hintDiv = document.getElementById('hint');
 const p2Tag = document.getElementById('p2-tag');
+const board3d = document.getElementById('board-3d');
 
 function scrollToSection(id){
   document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
@@ -369,6 +397,19 @@ function initBoard() {
       cell.dataset.c = c;
       cell.addEventListener('click', onCellClick);
       boardDiv.appendChild(cell);
+    }
+  }
+}
+
+function renderBoard() {
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      const idx = r * boardSize + c;
+      const cell = boardDiv.children[idx];
+      cell.classList.remove('p1','p2','blocked','drop');
+      if (board[r][c] === 1) cell.classList.add('p1');
+      else if (board[r][c] === 2) cell.classList.add('p2');
+      else if (board[r][c] === -1) cell.classList.add('blocked');
     }
   }
 }
@@ -438,12 +479,21 @@ function handleMove(r, c, cellEl) {
     return;
   }
 
+  // 記錄本回合誰已經行動過
+  movedThisRound[currentPlayer] = true;
+
   // 連續落子判定
   if (pendingExtraMovePlayer === currentPlayer) {
     pendingExtraMovePlayer = null;
     hintDiv.textContent = '連續落子啟動：你還可以再下一手。';
     startTimer();
     return;
+  }
+
+  // 回合結算與自動旋轉
+  const endedByRotation = maybeAdvanceRoundAndRotate();
+  if (endedByRotation) {
+    return; // 旋轉後直接結束遊戲
   }
 
   // 正常換手
@@ -485,8 +535,8 @@ function scheduleNextTurn() {
 
 // 技能邏輯
 const skills = {
-  1: { double: 1, block: 1, remove: 1 },
-  2: { double: 1, block: 1, remove: 1 }
+  1: { double: 1, block: 1, remove: 1, rotate: 1 },
+  2: { double: 1, block: 1, remove: 1, rotate: 1 }
 };
 
 function useSkill(player, type) {
@@ -508,10 +558,31 @@ function useSkill(player, type) {
   skillOwner = player;
   if (type === 'block') {
     hintDiv.textContent = '封鎖格子：請點選任一尚未下子的格子。';
-  } else {
+  } else if (type === 'remove') {
     hintDiv.textContent = '移除棋子：請點選對方的一顆棋子。';
   }
   updateUI();
+}
+
+function useRotateSkill(player) {
+  if (player !== currentPlayer) return;
+  if (skills[player].rotate <= 0) return;
+  if (mode !== 'normal') return;
+  if (gameMode === MODE_AI && player === 2) return; // 目前不讓 AI 用旋轉牌
+
+  const cw = confirm('使用旋轉牌！\n按「確定」：順時針旋轉 90 度\n按「取消」：逆時針旋轉 90 度');
+  const dir = cw ? 1 : -1;
+
+  skills[player].rotate--;
+  autoRotateDir = dir; // 之後每三回合自動旋轉會沿用這個方向
+  updateSkillCounts();
+
+  const ended = applyBoardRotation(dir);
+  if (ended) return;
+
+  hintDiv.textContent = dir === 1
+    ? '你使用了順時針旋轉牌，之後每三回合會順時針旋轉 90 度並往下推一格。'
+    : '你使用了逆時針旋轉牌，之後每三回合會逆時針旋轉 90 度並往下推一格。';
 }
 
 function exitSkillMode() {
@@ -569,6 +640,7 @@ function findRandomMove() {
 // 勝負與戰績
 function checkWin(r, c) {
   const target = board[r][c];
+  if (target !== 1 && target !== 2) return false;
   const dirs = [
     [[1,0],[-1,0]],
     [[0,1],[0,-1]],
@@ -646,11 +718,26 @@ function resetGame(resetStats=true) {
   pendingExtraMovePlayer = null;
   mode = 'normal';
   skillOwner = null;
+
+  roundCount = 0;
+  movedThisRound = {1:false, 2:false};
+  autoRotateDir = 1;
+  boardRotSteps = 0;
+  updateBoardTransform();
+
   if (resetStats) {
-    stats = { p1Wins:0,p2Wins:0,draws:0,totalGames:0,longestStreak:0,currentStreakPlayer:null,currentStreakCount:0 };
+    stats = { 
+      p1Wins:0,
+      p2Wins:0,
+      draws:0,
+      totalGames:0,
+      longestStreak:0,
+      currentStreakPlayer:null,
+      currentStreakCount:0 
+    };
   }
-  skills[1] = { double:1, block:1, remove:1 };
-  skills[2] = { double:1, block:1, remove:1 };
+  skills[1] = { double:1, block:1, remove:1, rotate:1 };
+  skills[2] = { double:1, block:1, remove:1, rotate:1 };
   updateSkillCounts();
   initBoard();
   updateUI();
@@ -662,9 +749,12 @@ function updateSkillCounts() {
   document.getElementById('p1-double-count').textContent = 'x' + skills[1].double;
   document.getElementById('p1-block-count').textContent  = 'x' + skills[1].block;
   document.getElementById('p1-remove-count').textContent = 'x' + skills[1].remove;
+  document.getElementById('p1-rotate-count').textContent = 'x' + skills[1].rotate;
+
   document.getElementById('p2-double-count').textContent = 'x' + skills[2].double;
   document.getElementById('p2-block-count').textContent  = 'x' + skills[2].block;
   document.getElementById('p2-remove-count').textContent = 'x' + skills[2].remove;
+  document.getElementById('p2-rotate-count').textContent = 'x' + skills[2].rotate;
 }
 
 function updateUI() {
@@ -679,12 +769,14 @@ function updateUI() {
   document.getElementById('p1-double').disabled = !isNormal || !p1Turn || skills[1].double<=0;
   document.getElementById('p1-block').disabled  = !isNormal || !p1Turn || skills[1].block<=0;
   document.getElementById('p1-remove').disabled = !isNormal || !p1Turn || skills[1].remove<=0;
+  document.getElementById('p1-rotate').disabled = !isNormal || !p1Turn || skills[1].rotate<=0;
 
   // 玩家 2 / AI 技能
   const isAI = gameMode === MODE_AI;
   document.getElementById('p2-double').disabled = !isNormal || !p2Turn || skills[2].double<=0 || isAI;
   document.getElementById('p2-block').disabled  = !isNormal || !p2Turn || skills[2].block<=0  || isAI;
   document.getElementById('p2-remove').disabled = !isNormal || !p2Turn || skills[2].remove<=0 || isAI;
+  document.getElementById('p2-rotate').disabled = !isNormal || !p2Turn || skills[2].rotate<=0 || isAI;
 
   p2Tag.textContent = isAI ? 'AI（紅方）' : '紅方';
 }
@@ -692,13 +784,113 @@ function updateUI() {
 function changeMode(value) {
   gameMode = value === MODE_AI ? MODE_AI : MODE_PVP;
   hintDiv.textContent = gameMode === MODE_AI
-    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。棋盤會持續立體旋轉，落子有重力掉落效果。'
-    : '目前為「雙人對戰」模式：玩家 1 與玩家 2 輪流落子。棋盤會持續立體旋轉，落子有重力掉落效果。';
+    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並往下推一格。'
+    : '目前為「雙人對戰」模式：雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並往下推一格。';
   resetGame(true);
+}
+
+// --- 回合與旋轉相關 ---
+
+function maybeAdvanceRoundAndRotate() {
+  if (movedThisRound[1] && movedThisRound[2]) {
+    roundCount++;
+    movedThisRound[1] = false;
+    movedThisRound[2] = false;
+
+    if (roundCount % 3 === 0) {
+      // 每三回合自動旋轉
+      const ended = applyBoardRotation(autoRotateDir);
+      if (ended) return true;
+    }
+  }
+  return false;
+}
+
+function rotateMatrixOnce(b, dir) {
+  const n = boardSize;
+  const nb = Array(n).fill().map(()=>Array(n).fill(0));
+  if (dir === 1) {
+    // 順時針：new[r][c] = old[n-1-c][r]
+    for (let r=0; r<n; r++) {
+      for (let c=0; c<n; c++) {
+        nb[r][c] = b[n-1-c][r];
+      }
+    }
+  } else {
+    // 逆時針：new[r][c] = old[c][n-1-r]
+    for (let r=0; r<n; r++) {
+      for (let c=0; c<n; c++) {
+        nb[r][c] = b[c][n-1-r];
+      }
+    }
+  }
+  return nb;
+}
+
+// 重力往下平移一格（只對棋子 1、2 生效，封鎖格 -1 不會掉）
+function applyGravityStep() {
+  for (let c = 0; c < boardSize; c++) {
+    for (let r = boardSize - 2; r >= 0; r--) {
+      if ((board[r][c] === 1 || board[r][c] === 2) && board[r+1][c] === 0) {
+        board[r+1][c] = board[r][c];
+        board[r][c] = 0;
+      }
+    }
+  }
+}
+
+// 旋轉 + 重力 + 檢查是否因旋轉而直接有人連成五子
+function applyBoardRotation(dir) {
+  board = rotateMatrixOnce(board, dir);
+  applyGravityStep();
+  renderBoard();
+
+  boardRotSteps = (boardRotSteps + (dir === 1 ? 1 : -1) + 4) % 4;
+  updateBoardTransform();
+
+  // 檢查是否因旋轉造成五子
+  return checkAnyWinAfterRotation();
+}
+
+function updateBoardTransform() {
+  if (!board3d) return;
+  const angle = boardRotSteps * 90;
+  board3d.style.transform = `rotateX(16deg) rotateY(-16deg) rotateZ(${angle}deg)`;
+}
+
+function checkAnyWinAfterRotation() {
+  let p1Win = false;
+  let p2Win = false;
+
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      if (board[r][c] === 1 && checkWin(r,c)) p1Win = true;
+      else if (board[r][c] === 2 && checkWin(r,c)) p2Win = true;
+    }
+  }
+
+  if (!p1Win && !p2Win) return false;
+
+  let winner, msg;
+  if (p1Win && !p2Win) {
+    winner = 1;
+    msg = '棋盤旋轉與重力平移後，玩家 1 形成五子連線，勝利！';
+  } else if (!p1Win && p2Win) {
+    winner = 2;
+    msg = '棋盤旋轉與重力平移後，玩家 2 形成五子連線，勝利！';
+  } else {
+    winner = 0;
+    msg = '棋盤旋轉與重力平移後，雙方同時形成五子連線，本局平手！';
+  }
+
+  clearInterval(timerId);
+  finishGame(winner, msg);
+  return true;
 }
 
 // 初始化
 initBoard();
+updateBoardTransform();
 updateUI();
 updateStatsUI();
 scheduleNextTurn();
