@@ -92,7 +92,14 @@
     font-size:13px;
     font-weight:600;
   }
-  #mode-select { background:#020617; color:var(--text); border-radius:999px; border:1px solid rgba(148,163,184,.7); padding:4px 10px; }
+  #mode-select, #shape-select { 
+    background:#020617; 
+    color:var(--text); 
+    border-radius:999px; 
+    border:1px solid rgba(148,163,184,.7); 
+    padding:4px 10px; 
+    margin-left:4px;
+  }
 
   #board-wrapper { display:flex; justify-content:center; margin-top:4px; }
   #board-3d { 
@@ -126,7 +133,7 @@
     position:relative;
     overflow:visible;
   }
-  #board .cell:hover:not(.blocked) { 
+  #board .cell:hover:not(.blocked):not(.disabled) { 
     box-shadow:0 0 0 1px rgba(129,140,248,.9) inset, 0 8px 14px rgba(15,23,42,.9);
   }
 
@@ -134,6 +141,28 @@
   .p2 { background:var(--accent-red); box-shadow:0 0 0 2px #f97316 inset; }
   .blocked { background:#4b5563; box-shadow:0 0 0 2px #9ca3af inset; cursor:not-allowed; }
   .drop { animation:pieceDrop .35s ease-out; }
+
+  /* 盤面外的 disabled 格子（八邊形、十六邊形用） */
+  .cell.disabled {
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  /* 最後落子的發光特效 */
+  .cell.highlight {
+    box-shadow: 0 0 15px 2px #facc15, inset 0 0 10px rgba(255,255,255,0.5) !important;
+    border: 2px solid #fff !important;
+    z-index: 10;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
 
   #controls-wrapper { display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; }
   .player-panel {
@@ -186,6 +215,61 @@
 
   #stats { margin-top:8px; font-size:13px; opacity:.9; }
 
+  /* 勝利畫面 Overlay */
+  #victory-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  #victory-card {
+    background: linear-gradient(145deg,#020617,#111827);
+    padding: 24px 28px;
+    border-radius: 24px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(15,23,42,1);
+    max-width: 320px;
+  }
+
+  #victory-card h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
+
+  #victory-card p {
+    margin: 0 0 18px;
+    font-size: 14px;
+    opacity: .9;
+  }
+
+  #victory-card .btn-main,
+  #victory-card .btn-sub {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 6px;
+  }
+
+  #victory-card .btn-main {
+    background: var(--accent-blue);
+    color: #020617;
+    box-shadow: 0 12px 32px rgba(56,189,248,.5);
+  }
+
+  #victory-card .btn-sub {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid rgba(148,163,184,.7);
+  }
+
   @keyframes pieceDrop {
     0% { transform:translateY(-90px) scale(0.4); }
     75% { transform:translateY(6px) scale(1.03); }
@@ -218,14 +302,14 @@
     <h1>生成式 AI × 旋轉重力五子棋</h1>
     <p class="lead">
       在 10×10 戰術棋盤上，以極速思考、旋轉牌與主動技能決勝負。  
-      雙方各下完一次算一回合，每三回合棋盤會依目前方向自動旋轉 90°，並把所有棋子往新的「下方」推到能落下的位置。
+      雙方各下完一次算一回合，每三回合棋盤會依目前方向自動旋轉 90°，並把所有棋子往新的「下方」推動一格。
     </p>
     <ul>
       <li>雙人或對 AI 對戰，規則直覺、入門快速。</li>
       <li>每手 15 秒極速計時，但時間到會自動幫你隨機落子，不會直接判負。</li>
       <li>主動技能：連續落子、封鎖格子、移除對手棋子、旋轉棋盤牌。</li>
       <li>每人每回合最多使用一張技能牌，考驗卡牌 timing 與心機。</li>
-      <li>每滿三回合自動旋轉＋重力往下，局勢隨時大翻盤。</li>
+      <li>每滿三回合自動旋轉＋重力往下（每次一格），局勢隨時大翻盤。</li>
       <li>內建戰績紀錄：勝場數、總對戰數與最長連勝紀錄。</li>
     </ul>
     <div class="cta-row">
@@ -239,10 +323,10 @@
     <ul>
       <li><strong>勝利條件：</strong>先在棋盤上連成任意方向五顆同色棋子（直線、橫線或斜線）者獲勝。</li>
       <li><strong>回合定義：</strong>雙方玩家各下完一次棋，算作 1 回合。</li>
-      <li><strong>自動旋轉：</strong>每經過 3 回合，棋盤會依目前設定方向自動旋轉 90°，並在新方向的重力之下，棋盤上的所有棋子會沿著新「下方」方向落到底（中途若遇到棋子或障礙就停）。</li>
+      <li><strong>自動旋轉：</strong>每經過 3 回合，棋盤會依目前設定方向自動旋轉 90°，並在新方向的重力之下，棋盤上的所有棋子會沿著新「下方」方向<strong>移動一格</strong>（若下方有空位）。</li>
       <li><strong>旋轉牌：</strong>每名玩家在初始時各獲得 1 張「旋轉棋盤」技能牌，可在自己的回合使用一次：
         <ul>
-          <li>使用時選擇「順時針」或「逆時針」旋轉 90°，立刻生效並套用重力落到底。</li>
+          <li>使用時選擇「順時針」或「逆時針」旋轉 90°，立刻生效並套用重力移動一格。</li>
           <li>之後每 3 回合的自動旋轉，會沿用最後使用旋轉牌的那位玩家所選的方向。</li>
           <li>直到另一位玩家使用自己的旋轉牌後，才可能改變自動旋轉方向。</li>
         </ul>
@@ -262,12 +346,22 @@
           <div id="timer">尚未開始：請按「開始遊戲」</div>
           <button id="start-btn" onclick="startGame()">開始遊戲</button>
         </div>
-        <div>
-          <label for="mode-select">對戰模式：</label>
-          <select id="mode-select" onchange="changeMode(this.value)">
-            <option value="pvp">雙人對戰</option>
-            <option value="ai">對 AI 對戰（你是玩家 1）</option>
-          </select>
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+          <div>
+            <label for="mode-select">對戰模式：</label>
+            <select id="mode-select" onchange="changeMode(this.value)">
+              <option value="pvp">雙人對戰</option>
+              <option value="ai">對 AI 對戰（你是玩家 1）</option>
+            </select>
+          </div>
+          <div>
+            <label for="shape-select">盤面形狀：</label>
+            <select id="shape-select" onchange="changeShape(this.value)">
+              <option value="square">正方形</option>
+              <option value="octagon">八邊形</option>
+              <option value="hexadecagon">十六邊形</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -339,11 +433,35 @@
   </section>
 </main>
 
+<!-- 勝利畫面 Overlay -->
+<div id="victory-overlay">
+  <div id="victory-card">
+    <h2 id="victory-title">恭喜你勝利！</h2>
+    <p id="victory-message">玩家 1 連成五子，勝利！</p>
+    <div>
+      <button class="btn-main" onclick="onVictoryPlayAgain()">再來一局</button>
+      <button class="btn-sub" onclick="onVictoryClose()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 勝利音效 -->
+<audio id="win-sound" src="win.wav" preload="auto"></audio>
+
 <script>
 const boardSize = 10;
 const MOVE_TIME = 15; // 每手 15 秒
 const MODE_PVP = 'pvp';
 const MODE_AI = 'ai';
+
+// === 新增：盤面形狀 ===
+let boardShape = 'square'; // 'square' | 'octagon' | 'hexadecagon'
+
+// 勝利畫面與音效
+const victoryOverlay = document.getElementById('victory-overlay');
+const victoryTitle = document.getElementById('victory-title');
+const victoryMessage = document.getElementById('victory-message');
+const winSound = document.getElementById('win-sound');
 
 let board = [];
 let currentPlayer = 1;
@@ -354,13 +472,14 @@ let timerId = null;
 let timeLeft = MOVE_TIME;
 let gameMode = MODE_PVP;
 let hasStarted = false;
+let lastMovePos = null;
 
 // 回合與旋轉
-let roundCount = 0;                      // 已完成的回合數（雙方各動一次）
-let movedThisRound = { 1:false, 2:false }; // 本回合內誰已動過
-let usedCardThisRound = { 1:false, 2:false }; // 本回合卡牌使用限制
-let autoRotateDir = 1;                   // 1: 順時針, -1: 逆時針
-let boardRotSteps = 0;                   // 目前盤面旋轉了幾次 90°（0~3）
+let roundCount = 0;
+let movedThisRound = { 1:false, 2:false };
+let usedCardThisRound = { 1:false, 2:false };
+let autoRotateDir = 1;  // 1: 順時針, -1: 逆時針
+let boardRotSteps = 0;
 
 // 戰績
 let stats = {
@@ -380,8 +499,33 @@ const hintDiv = document.getElementById('hint');
 const p2Tag = document.getElementById('p2-tag');
 const board3d = document.getElementById('board-3d');
 
+// 捲動
 function scrollToSection(id){
   document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// === 定義不同盤面形狀 ===
+function isCellActive(r, c) {
+  if (boardShape === 'square') {
+    return true;
+  }
+
+  if (boardShape === 'octagon') {
+    if (r === 0 || r === 9) return (c >= 3 && c <= 6);
+    if (r === 1 || r === 8) return (c >= 2 && c <= 7);
+    if (r === 2 || r === 7) return (c >= 1 && c <= 8);
+    return true;
+  }
+
+  if (boardShape === 'hexadecagon') {
+    if (r === 0 || r === 9) return (c >= 4 && c <= 5);
+    if (r === 1 || r === 8) return (c >= 3 && c <= 6);
+    if (r === 2 || r === 7) return (c >= 2 && c <= 7);
+    if (r === 3 || r === 6) return (c >= 1 && c <= 8);
+    return true;
+  }
+
+  return true;
 }
 
 function initBoard() {
@@ -394,7 +538,14 @@ function initBoard() {
       cell.classList.add('cell');
       cell.dataset.r = r;
       cell.dataset.c = c;
-      cell.addEventListener('click', onCellClick);
+
+      if (!isCellActive(r, c)) {
+        board[r][c] = null;
+        cell.classList.add('disabled');
+      } else {
+        board[r][c] = 0;
+        cell.addEventListener('click', onCellClick);
+      }
       boardDiv.appendChild(cell);
     }
   }
@@ -405,10 +556,20 @@ function renderBoard() {
     for (let c = 0; c < boardSize; c++) {
       const idx = r * boardSize + c;
       const cell = boardDiv.children[idx];
-      cell.classList.remove('p1','p2','blocked','drop');
+      cell.classList.remove('p1','p2','blocked','drop','highlight','disabled');
+
+      if (!isCellActive(r, c) || board[r][c] === null) {
+        cell.classList.add('disabled');
+        continue;
+      }
+
       if (board[r][c] === 1) cell.classList.add('p1');
       else if (board[r][c] === 2) cell.classList.add('p2');
       else if (board[r][c] === -1) cell.classList.add('blocked');
+
+      if (lastMovePos && lastMovePos.r === r && lastMovePos.c === c && board[r][c] !== 0) {
+        cell.classList.add('highlight');
+      }
     }
   }
 }
@@ -444,7 +605,8 @@ function onCellClick(e) {
   const c = Number(e.target.dataset.c);
 
   if (!hasStarted) return;
-  if (gameMode === MODE_AI && currentPlayer === 2) return; // AI 回合禁止玩家點擊
+  if (!isCellActive(r, c) || board[r][c] === null) return;
+  if (gameMode === MODE_AI && currentPlayer === 2) return;
 
   if (mode === 'block') {
     handleBlockSkill(r, c, e.target);
@@ -459,34 +621,38 @@ function onCellClick(e) {
 }
 
 function handleMove(r, c, cellEl) {
-  if (board[r][c] !== 0) return; // 已有棋子或封鎖
+  if (!isCellActive(r, c) || board[r][c] !== 0) return;
 
   board[r][c] = currentPlayer;
-  cellEl.classList.add(currentPlayer === 1 ? 'p1' : 'p2');
-  cellEl.classList.add('drop');
-  setTimeout(() => cellEl.classList.remove('drop'), 400);
+  lastMovePos = { r, c };
+  renderBoard();
 
-  if (checkWin(r, c)) {
-    const winner = currentPlayer;
-    clearInterval(timerId);
-    setTimeout(() => {
-      finishGame(winner, `玩家 ${winner} 連成五子，勝利！`);
-    }, 20);
-    return;
-  }
+  const newCell = boardDiv.children[r * boardSize + c];
+  newCell.classList.add('drop');
+  setTimeout(() => newCell.classList.remove('drop'), 400);
 
+ const winLine = getWinLine(r, c);
+if (winLine) {
+  const winner = currentPlayer;
+
+  // 立即播放音效（不等勝利畫面）
+  try {
+    winSound.currentTime = 0;
+    winSound.play();
+  } catch (e) { console.log("音效被阻擋", e); }
+
+  clearInterval(timerId);
+  finishGame(winner, `玩家 ${winner} 連成五子，勝利！`, winLine);
+  return;
+}
   if (isBoardFull()) {
     clearInterval(timerId);
-    setTimeout(() => {
-      finishGame(0, '棋盤已滿，本局平手！');
-    }, 20);
+    finishGame(0, '棋盤已滿，本局平手！');
     return;
   }
 
-  // 記錄本回合誰已經行動過
   movedThisRound[currentPlayer] = true;
 
-  // 連續落子判定
   if (pendingExtraMovePlayer === currentPlayer) {
     pendingExtraMovePlayer = null;
     hintDiv.textContent = '連續落子啟動：你還可以再下一手。';
@@ -494,13 +660,9 @@ function handleMove(r, c, cellEl) {
     return;
   }
 
-  // 回合結算與自動旋轉
   const endedByRotation = maybeAdvanceRoundAndRotate();
-  if (endedByRotation) {
-    return; // 旋轉後直接結束遊戲
-  }
+  if (endedByRotation) return;
 
-  // 正常換手
   currentPlayer = currentPlayer === 1 ? 2 : 1;
   hintDiv.textContent = '輪到你時可選擇技能或直接落子。';
   updateUI();
@@ -508,8 +670,8 @@ function handleMove(r, c, cellEl) {
 }
 
 function handleBlockSkill(r, c, cellEl) {
-  if (board[r][c] !== 0) return; // 只能封鎖空格
-  board[r][c] = -1; // -1 代表封鎖
+  if (!isCellActive(r, c) || board[r][c] !== 0) return;
+  board[r][c] = -1;
   cellEl.classList.add('blocked');
 
   skills[skillOwner].block--;
@@ -518,11 +680,12 @@ function handleBlockSkill(r, c, cellEl) {
 }
 
 function handleRemoveSkill(r, c, cellEl) {
+  if (!isCellActive(r, c)) return;
   const opponent = skillOwner === 1 ? 2 : 1;
-  if (board[r][c] !== opponent) return; // 只能移除對手棋子
+  if (board[r][c] !== opponent) return;
 
   board[r][c] = 0;
-  cellEl.classList.remove('p1','p2');
+  renderBoard();
 
   skills[skillOwner].remove--;
   usedCardThisRound[skillOwner] = true;
@@ -543,22 +706,22 @@ function scheduleNextTurn() {
   }
 }
 
-// 技能邏輯
+// 技能
 const skills = {
   1: { double: 1, block: 1, remove: 1, rotate: 1 },
   2: { double: 1, block: 1, remove: 1, rotate: 1 }
 };
 
 function useSkill(player, type) {
-  if (player !== currentPlayer) return; // 非當前玩家不能用
+  if (player !== currentPlayer) return;
   if (!hasStarted) return;
   if (skills[player][type] <= 0) return;
-  if (mode !== 'normal') return; // 已在技能模式中
+  if (mode !== 'normal') return;
   if (usedCardThisRound[player]) {
     hintDiv.textContent = '本回合你已使用過一張技能牌，請等待下一回合。';
     return;
   }
-  if (gameMode === MODE_AI && player === 2) return; // AI 不主動用技能
+  if (gameMode === MODE_AI && player === 2) return;
 
   if (type === 'double') {
     pendingExtraMovePlayer = player;
@@ -569,8 +732,7 @@ function useSkill(player, type) {
     return;
   }
 
-  // block / remove 需要點格子
-  mode = type; // 'block' 或 'remove'
+  mode = type;
   skillOwner = player;
   if (type === 'block') {
     hintDiv.textContent = '封鎖格子：請點選任一尚未下子的格子。';
@@ -589,22 +751,21 @@ function useRotateSkill(player) {
     hintDiv.textContent = '本回合你已使用過一張技能牌，請等待下一回合。';
     return;
   }
-  if (gameMode === MODE_AI && player === 2) return; // 目前不讓 AI 用旋轉牌
+  if (gameMode === MODE_AI && player === 2) return;
 
   const cw = confirm('使用旋轉牌！\n按「確定」：順時針旋轉 90 度\n按「取消」：逆時針旋轉 90 度');
   const dir = cw ? 1 : -1;
 
   skills[player].rotate--;
-  autoRotateDir = dir; // 之後每三回合自動旋轉會沿用這個方向
+  autoRotateDir = dir;
   usedCardThisRound[player] = true;
   updateSkillCounts();
-
   const ended = applyBoardRotation(dir);
   if (ended) return;
 
   hintDiv.textContent = dir === 1
-    ? '你使用了順時針旋轉牌，之後每三回合會順時針旋轉 90 度並重力落到底。'
-    : '你使用了逆時針旋轉牌，之後每三回合會逆時針旋轉 90 度並重力落到底。';
+    ? '你使用了順時針旋轉牌，之後每三回合會順時針旋轉 90 度並重力移動一格。'
+    : '你使用了逆時針旋轉牌，之後每三回合會逆時針旋轉 90 度並重力移動一格。';
 }
 
 function exitSkillMode() {
@@ -613,12 +774,12 @@ function exitSkillMode() {
   updateUI();
 }
 
-// AI 行為：簡易進攻 + 防守 + 隨機
+// AI
 function aiMove() {
   if (currentPlayer !== 2) return;
 
-  let move = findWinningMove(2); // 先找 AI 自己的致勝點
-  if (!move) move = findWinningMove(1); // 再試著擋住玩家致勝點
+  let move = findWinningMove(2);
+  if (!move) move = findWinningMove(1);
   if (!move) move = findRandomMove();
 
   if (!move) {
@@ -632,7 +793,6 @@ function aiMove() {
   handleMove(r, c, cellEl);
 }
 
-// 逾時自動落子
 function autoMoveOnTimeout() {
   const move = findRandomMove();
   if (!move) {
@@ -648,9 +808,10 @@ function autoMoveOnTimeout() {
 function findWinningMove(player) {
   for (let r = 0; r < boardSize; r++) {
     for (let c = 0; c < boardSize; c++) {
+      if (!isCellActive(r, c)) continue;
       if (board[r][c] !== 0) continue;
       board[r][c] = player;
-      const win = checkWin(r, c);
+      const win = !!getWinLine(r, c);
       board[r][c] = 0;
       if (win) return [r, c];
     }
@@ -662,6 +823,7 @@ function findRandomMove() {
   const empties = [];
   for (let r = 0; r < boardSize; r++) {
     for (let c = 0; c < boardSize; c++) {
+      if (!isCellActive(r, c)) continue;
       if (board[r][c] === 0) empties.push([r, c]);
     }
   }
@@ -670,42 +832,74 @@ function findRandomMove() {
   return empties[idx];
 }
 
-// 勝負與戰績
-function checkWin(r, c) {
+// === 新增：取得某一步的連線格子 ===
+function getWinLine(r, c) {
   const target = board[r][c];
-  if (target !== 1 && target !== 2) return false;
+  if (target !== 1 && target !== 2) return null;
+
   const dirs = [
-    [[1,0],[-1,0]],
-    [[0,1],[0,-1]],
-    [[1,1],[-1,-1]],
-    [[1,-1],[-1,1]]
+    [[1,0],[-1,0]],   // 垂直
+    [[0,1],[0,-1]],   // 水平
+    [[1,1],[-1,-1]],  // 正斜
+    [[1,-1],[-1,1]]   // 反斜
   ];
 
   for (let dir of dirs) {
-    let count = 1;
+    let cells = [{r, c}];
     for (let [dr, dc] of dir) {
       let nr = r + dr, nc = c + dc;
-      while (nr>=0 && nr<boardSize && nc>=0 && nc<boardSize && board[nr][nc]===target) {
-        count++;
-        nr += dr; nc += dc;
+      while (
+        nr >= 0 && nr < boardSize &&
+        nc >= 0 && nc < boardSize &&
+        isCellActive(nr, nc) &&
+        board[nr][nc] === target
+      ) {
+        cells.push({r:nr, c:nc});
+        nr += dr;
+        nc += dc;
       }
     }
-    if (count >= 5) return true;
+    if (cells.length >= 5) {
+      return cells; // 回傳整條連線（可能超過 5 顆）
+    }
   }
-  return false;
+  return null;
+}
+
+// 舊的 checkWin 現在只回傳 boolean（給其它地方用）
+function checkWin(r, c) {
+  return !!getWinLine(r, c);
 }
 
 function isBoardFull() {
   for (let r = 0; r < boardSize; r++) {
     for (let c = 0; c < boardSize; c++) {
+      if (!isCellActive(r, c)) continue;
       if (board[r][c] === 0) return false;
     }
   }
   return true;
 }
 
-function finishGame(winner, message) {
-  // 更新戰績
+// === 新增：高亮顯示勝利連線 ===
+function highlightWinLine(cells) {
+  // 先把所有 highlight 清掉
+  for (let i = 0; i < boardDiv.children.length; i++) {
+    boardDiv.children[i].classList.remove('highlight');
+  }
+  // 將連線格子加上 highlight
+  cells.forEach(pos => {
+    const idx = pos.r * boardSize + pos.c;
+    const cell = boardDiv.children[idx];
+    if (cell) cell.classList.add('highlight');
+  });
+}
+
+// 勝負處理（會處理「先亮 5 秒」）
+function finishGame(winner, message, winCells) {
+  clearInterval(timerId);
+  hasStarted = false; // 避免再繼續點棋盤
+
   stats.totalGames++;
   if (winner === 1) stats.p1Wins++;
   if (winner === 2) stats.p2Wins++;
@@ -727,8 +921,17 @@ function finishGame(winner, message) {
   }
 
   updateStatsUI();
-  alert(message);
-  resetGame(false); // 不重置戰績
+
+  // 若有勝利連線，先亮 5 秒，再出勝利畫面 + 音效
+  if (winCells && winCells.length > 0) {
+    highlightWinLine(winCells);
+    setTimeout(() => {
+      showVictoryScreen(winner, message);
+    }, 2000);
+  } else {
+    // 平手或找不到連線：直接跳勝利畫面
+    showVictoryScreen(winner, message);
+  }
 }
 
 function updateStatsUI() {
@@ -751,6 +954,7 @@ function resetGame(resetStats=true) {
   pendingExtraMovePlayer = null;
   mode = 'normal';
   skillOwner = null;
+  lastMovePos = null;
 
   roundCount = 0;
   movedThisRound = {1:false, 2:false};
@@ -801,13 +1005,11 @@ function updateUI() {
   const p1Turn = currentPlayer === 1;
   const p2Turn = currentPlayer === 2;
 
-  // 玩家 1 技能（每回合只能 1 張）
   document.getElementById('p1-double').disabled = !isNormal || !p1Turn || skills[1].double<=0 || usedCardThisRound[1];
   document.getElementById('p1-block').disabled  = !isNormal || !p1Turn || skills[1].block<=0  || usedCardThisRound[1];
   document.getElementById('p1-remove').disabled = !isNormal || !p1Turn || skills[1].remove<=0 || usedCardThisRound[1];
   document.getElementById('p1-rotate').disabled = !isNormal || !p1Turn || skills[1].rotate<=0 || usedCardThisRound[1];
 
-  // 玩家 2 / AI 技能
   const isAI = gameMode === MODE_AI;
   document.getElementById('p2-double').disabled = !isNormal || !p2Turn || skills[2].double<=0 || usedCardThisRound[2] || isAI;
   document.getElementById('p2-block').disabled  = !isNormal || !p2Turn || skills[2].block<=0  || usedCardThisRound[2] || isAI;
@@ -820,13 +1022,25 @@ function updateUI() {
 function changeMode(value) {
   gameMode = value === MODE_AI ? MODE_AI : MODE_PVP;
   hintDiv.textContent = gameMode === MODE_AI
-    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並重力落到底。'
-    : '目前為「雙人對戰」模式：雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並重力落到底。';
+    ? '目前為「對 AI 對戰」模式：你是玩家 1，AI 是玩家 2。雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並重力移動一格。'
+    : '目前為「雙人對戰」模式：雙方各下完一次算一回合，每三回合依目前方向自動旋轉 90 度並重力移動一格。';
   resetGame(true);
 }
 
-// --- 回合與旋轉相關 ---
+// 盤面形狀切換
+function changeShape(value) {
+  boardShape = value;
+  if (value === 'square') {
+    hintDiv.textContent = '目前為「正方形」盤面：標準 10×10 棋盤。';
+  } else if (value === 'octagon') {
+    hintDiv.textContent = '目前為「八邊形」盤面：四角裁切，戰鬥更集中在中路。';
+  } else if (value === 'hexadecagon') {
+    hintDiv.textContent = '目前為「十六邊形」盤面：接近圓形的盤面，角落較少。';
+  }
+  resetGame(false);
+}
 
+// 回合 + 旋轉
 function maybeAdvanceRoundAndRotate() {
   if (movedThisRound[1] && movedThisRound[2]) {
     roundCount++;
@@ -836,7 +1050,6 @@ function maybeAdvanceRoundAndRotate() {
     usedCardThisRound[2] = false;
 
     if (roundCount % 3 === 0) {
-      // 每三回合自動旋轉
       const ended = applyBoardRotation(autoRotateDir);
       if (ended) return true;
     }
@@ -846,44 +1059,53 @@ function maybeAdvanceRoundAndRotate() {
 
 function rotateMatrixOnce(b, dir) {
   const n = boardSize;
-  const nb = Array(n).fill().map(()=>Array(n).fill(0));
+  const nb = Array(n).fill().map(()=>Array(n).fill(null));
+  
   if (dir === 1) {
-    // 順時針：new[r][c] = old[n-1-c][r]
     for (let r=0; r<n; r++) {
       for (let c=0; c<n; c++) {
         nb[r][c] = b[n-1-c][r];
       }
     }
+    if (lastMovePos) {
+      const oldR = lastMovePos.r;
+      const oldC = lastMovePos.c;
+      lastMovePos.r = oldC;
+      lastMovePos.c = n - 1 - oldR;
+    }
   } else {
-    // 逆時針：new[r][c] = old[c][n-1-r]
     for (let r=0; r<n; r++) {
       for (let c=0; c<n; c++) {
         nb[r][c] = b[c][n-1-r];
       }
     }
+    if (lastMovePos) {
+      const oldR = lastMovePos.r;
+      const oldC = lastMovePos.c;
+      lastMovePos.r = n - 1 - oldC;
+      lastMovePos.c = oldR;
+    }
   }
   return nb;
 }
 
-// 重力：棋子落到底（封鎖格 -1 不會動）
 function applyGravityDropAll() {
   for (let c = 0; c < boardSize; c++) {
-    let write = boardSize - 1;
-    for (let r = boardSize - 1; r >= 0; r--) {
-      if (board[r][c] === -1) {
-        write = r - 1; // 障礙，下方寫入位置跳到障礙上方
-      } else if (board[r][c] === 1 || board[r][c] === 2) {
-        if (write !== r) {
-          board[write][c] = board[r][c];
+    for (let r = boardSize - 2; r >= 0; r--) {
+      if (!isCellActive(r, c)) continue;
+      if (board[r][c] === 1 || board[r][c] === 2) {
+        if (isCellActive(r+1, c) && board[r+1][c] === 0) {
+          board[r+1][c] = board[r][c];
           board[r][c] = 0;
+          if (lastMovePos && lastMovePos.r === r && lastMovePos.c === c) {
+            lastMovePos.r = r + 1;
+          }
         }
-        write--;
       }
     }
   }
 }
 
-// 旋轉 + 重力 + 檢查是否因旋轉而直接有人連成五子
 function applyBoardRotation(dir) {
   board = rotateMatrixOnce(board, dir);
   applyGravityDropAll();
@@ -892,7 +1114,6 @@ function applyBoardRotation(dir) {
   boardRotSteps = (boardRotSteps + (dir === 1 ? 1 : -1) + 4) % 4;
   updateBoardTransform();
 
-  // 檢查是否因旋轉造成五子
   return checkAnyWinAfterRotation();
 }
 
@@ -903,33 +1124,79 @@ function updateBoardTransform() {
 }
 
 function checkAnyWinAfterRotation() {
-  let p1Win = false;
-  let p2Win = false;
+  let p1Line = null;
+  let p2Line = null;
 
   for (let r = 0; r < boardSize; r++) {
     for (let c = 0; c < boardSize; c++) {
-      if (board[r][c] === 1 && checkWin(r,c)) p1Win = true;
-      else if (board[r][c] === 2 && checkWin(r,c)) p2Win = true;
+      if (!isCellActive(r, c)) continue;
+      if (board[r][c] === 1 && !p1Line) {
+        const line = getWinLine(r,c);
+        if (line) p1Line = line;
+      } else if (board[r][c] === 2 && !p2Line) {
+        const line = getWinLine(r,c);
+        if (line) p2Line = line;
+      }
     }
   }
 
-  if (!p1Win && !p2Win) return false;
+  if (!p1Line && !p2Line) return false;
 
-  let winner, msg;
-  if (p1Win && !p2Win) {
+  let winner, msg, winCells = null;
+  if (p1Line && !p2Line) {
     winner = 1;
-    msg = '棋盤旋轉與重力落子後，玩家 1 形成五子連線，勝利！';
-  } else if (!p1Win && p2Win) {
+    msg = '棋盤旋轉與重力移動後，玩家 1 形成五子連線，勝利！';
+    winCells = p1Line;
+  } else if (!p1Line && p2Line) {
     winner = 2;
-    msg = '棋盤旋轉與重力落子後，玩家 2 形成五子連線，勝利！';
+    msg = '棋盤旋轉與重力移動後，玩家 2 形成五子連線，勝利！';
+    winCells = p2Line;
   } else {
     winner = 0;
-    msg = '棋盤旋轉與重力落子後，雙方同時形成五子連線，本局平手！';
+    msg = '棋盤旋轉與重力移動後，雙方同時形成五子連線，本局平手！';
+    // 同時都有，這裡可以選擇不特別 highlight 或只亮一邊
+    winCells = null;
   }
 
-  clearInterval(timerId);
-  finishGame(winner, msg);
+  finishGame(winner, msg, winCells);
   return true;
+}
+
+// 勝利畫面
+function showVictoryScreen(winner, message) {
+  let titleText;
+  if (winner === 1) {
+    titleText = '恭喜玩家 1 勝利！';
+  } else if (winner === 2) {
+    titleText = (gameMode === MODE_AI)
+      ? 'AI 獲勝！再接再厲～'
+      : '恭喜玩家 2 勝利！';
+  } else {
+    titleText = '平手結束';
+  }
+
+  victoryTitle.textContent = titleText;
+  victoryMessage.textContent = message;
+  victoryOverlay.style.display = 'flex';
+
+  if (winSound) {
+    try {
+      //winSound.currentTime = 0;//
+     // winSound.play();//
+    } catch (e) {
+      console.log('播放音效失敗（可能被瀏覽器阻擋）：', e);
+    }
+  }
+}
+
+function onVictoryPlayAgain() {
+  victoryOverlay.style.display = 'none';
+  resetGame(false);
+}
+
+function onVictoryClose() {
+  victoryOverlay.style.display = 'none';
+  resetGame(false);
 }
 
 // 初始化
@@ -938,5 +1205,6 @@ updateBoardTransform();
 updateUI();
 updateStatsUI();
 </script>
+
 </body>
 </html>
